@@ -7,7 +7,6 @@ package hj
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"mime"
 	"net/http"
@@ -135,9 +134,25 @@ func (h jsonHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx = context.WithValue(ctx, reqKey{}, r)
 
 	handleErr := func(err error) {
-		var c CodeErr
-		if errors.As(err, &c) {
+		// TODO: when we can use Go 1.13, use errors.As here.
+
+		type aser interface {
+			As(interface{}) bool
+		}
+
+		var headerWritten bool
+		if c, ok := err.(CodeErr); ok {
 			w.WriteHeader(c.C)
+			headerWritten = true
+		} else if a, ok := err.(aser); ok {
+			var c CodeErr
+			if a.As(&c) {
+				w.WriteHeader(c.C)
+				headerWritten = true
+			}
+		}
+		if !headerWritten {
+			w.WriteHeader(http.StatusInternalServerError)
 		}
 		if h.onError != nil {
 			h.onError(ctx, err)
