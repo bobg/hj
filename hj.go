@@ -136,24 +136,21 @@ func (h jsonHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	handleErr := func(err error) {
 		// TODO: when we can use Go 1.13, use errors.As here.
 
+		code := http.StatusInternalServerError
+
 		type aser interface {
 			As(interface{}) bool
 		}
 
-		var headerWritten bool
 		if c, ok := err.(CodeErr); ok {
-			w.WriteHeader(c.C)
-			headerWritten = true
+			code = c.C
 		} else if a, ok := err.(aser); ok {
 			var c CodeErr
 			if a.As(&c) {
-				w.WriteHeader(c.C)
-				headerWritten = true
+				code = c.C
 			}
 		}
-		if !headerWritten {
-			w.WriteHeader(http.StatusInternalServerError)
-		}
+		http.Error(w, err.Error(), code)
 		if h.onError != nil {
 			h.onError(ctx, err)
 		}
