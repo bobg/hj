@@ -115,7 +115,10 @@ func Handler(f interface{}, onError func(context.Context, error)) http.Handler {
 	}
 }
 
-type reqKey struct{}
+type (
+	reqKey  struct{}
+	respKey struct{}
+)
 
 // Request returns the pending HTTP request object
 // from the context optionally passed to the wrapped function
@@ -128,10 +131,22 @@ func Request(ctx context.Context) *http.Request {
 	return val.(*http.Request)
 }
 
+// Response returns the pending HTTP ResponseWriter object
+// from the context optionally passed to the wrapped function
+// (which is also passed to the optional onError callback).
+func Response(ctx context.Context) http.ResponseWriter {
+	val := ctx.Value(respKey{})
+	if val == nil {
+		return nil
+	}
+	return val.(http.ResponseWriter)
+}
+
 // ServeHTTP implements http.Handler.
-func (h jsonHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	ctx = context.WithValue(ctx, reqKey{}, r)
+func (h jsonHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	ctx := req.Context()
+	ctx = context.WithValue(ctx, reqKey{}, req)
+	ctx = context.WithValue(ctx, respKey{}, w)
 
 	handleErr := func(err error) {
 		code := http.StatusInternalServerError
@@ -155,11 +170,11 @@ func (h jsonHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if r.Method != "POST" {
-		handleErr(ErrNotPost{Method: r.Method})
+	if req.Method != "POST" {
+		handleErr(ErrNotPost{Method: req.Method})
 		return
 	}
-	ct, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	ct, _, err := mime.ParseMediaType(req.Header.Get("Content-Type"))
 	if err != nil || ct != "application/json" {
 		handleErr(ErrNotJSON{})
 		return
@@ -173,7 +188,7 @@ func (h jsonHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if h.argType != nil {
 		argPtr := reflect.New(h.argType)
 
-		dec := json.NewDecoder(r.Body)
+		dec := json.NewDecoder(req.Body)
 		dec.UseNumber()
 		err := dec.Decode(argPtr.Interface())
 		if err != nil {
