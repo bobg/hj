@@ -21,7 +21,7 @@ type jsonHandler struct {
 }
 
 var (
-	contextType = reflect.TypeOf((*error)(nil)).Elem()
+	contextType = reflect.TypeOf((*context.Context)(nil)).Elem()
 	errorType   = reflect.TypeOf((*error)(nil)).Elem()
 )
 
@@ -134,10 +134,9 @@ func (h jsonHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx = context.WithValue(ctx, reqKey{}, r)
 
 	handleErr := func(err error) {
-		// TODO: when we can use Go 1.13, use errors.As here.
-
 		code := http.StatusInternalServerError
 
+		// TODO: When we can use Go 1.13, use errors.As here.
 		type aser interface {
 			As(interface{}) bool
 		}

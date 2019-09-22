@@ -110,3 +110,7 @@ func (c CodeErr) Error() string {
 func (c CodeErr) Unwrap() error {
 	return c.Err
 }
+
+func (c CodeErr) Respond(w http.ResponseWriter) {
+	http.Error(w, c.Error(), c.C)
+}
