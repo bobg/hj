@@ -118,9 +118,6 @@ func Handler(f interface{}, onError func(context.Context, error)) http.Handler {
 
 // ServeHTTP implements http.Handler.
 func (h jsonHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	log.Print("xxx entering jsonHandler.ServeHTTP")
-	defer log.Print("xxx leaving jsonHandler.ServeHTTP")
-
 	ctx := req.Context()
 	ctx = context.WithValue(ctx, reqKey{}, req)
 	ctx = context.WithValue(ctx, respKey{}, w)
@@ -165,7 +162,6 @@ func (h jsonHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		args = append(args, argPtr.Elem())
 	}
 
-	log.Printf("xxx jsonHandler.ServeHTTP calling function with %d arg(s) [hasCtx = %v]", len(args), h.hasCtx)
 	rv := h.fval.Call(args)
 
 	if h.hasErr {
@@ -177,7 +173,6 @@ func (h jsonHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 
 	if h.resultType == nil {
-		log.Print("xxx jsonHandler.ServeHTTP returning StatusNoContent")
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
