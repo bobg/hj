@@ -115,33 +115,6 @@ func Handler(f interface{}, onError func(context.Context, error)) http.Handler {
 	}
 }
 
-type (
-	reqKey  struct{}
-	respKey struct{}
-)
-
-// Request returns the pending HTTP request object
-// from the context optionally passed to the wrapped function
-// (which is also passed to the optional onError callback).
-func Request(ctx context.Context) *http.Request {
-	val := ctx.Value(reqKey{})
-	if val == nil {
-		return nil
-	}
-	return val.(*http.Request)
-}
-
-// Response returns the pending HTTP ResponseWriter object
-// from the context optionally passed to the wrapped function
-// (which is also passed to the optional onError callback).
-func Response(ctx context.Context) http.ResponseWriter {
-	val := ctx.Value(respKey{})
-	if val == nil {
-		return nil
-	}
-	return val.(http.ResponseWriter)
-}
-
 // ServeHTTP implements http.Handler.
 func (h jsonHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
@@ -149,22 +122,12 @@ func (h jsonHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	ctx = context.WithValue(ctx, respKey{}, w)
 
 	handleErr := func(err error) {
-		code := http.StatusInternalServerError
-
-		// TODO: When we can use Go 1.13, use errors.As here.
-		type aser interface {
-			As(interface{}) bool
+		if r, ok := err.(Responder); ok {
+			r.Respond(w)
+		} else {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 
-		if c, ok := err.(CodeErr); ok {
-			code = c.C
-		} else if a, ok := err.(aser); ok {
-			var c CodeErr
-			if a.As(&c) {
-				code = c.C
-			}
-		}
-		http.Error(w, err.Error(), code)
 		if h.onError != nil {
 			h.onError(ctx, err)
 		}
@@ -176,7 +139,7 @@ func (h jsonHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 	ct, _, err := mime.ParseMediaType(req.Header.Get("Content-Type"))
 	if err != nil || ct != "application/json" {
-		handleErr(ErrNotJSON{})
+		handleErr(ErrNotJSON{ContentType: ct})
 		return
 	}
 
@@ -221,4 +184,31 @@ func (h jsonHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		handleErr(ErrEncode{Err: err})
 		return
 	}
+}
+
+type (
+	reqKey  struct{}
+	respKey struct{}
+)
+
+// Request returns the pending HTTP request object
+// from the context optionally passed to the wrapped function
+// (which is also passed to the optional onError callback).
+func Request(ctx context.Context) *http.Request {
+	val := ctx.Value(reqKey{})
+	if val == nil {
+		return nil
+	}
+	return val.(*http.Request)
+}
+
+// Response returns the pending HTTP ResponseWriter object
+// from the context optionally passed to the wrapped function
+// (which is also passed to the optional onError callback).
+func Response(ctx context.Context) http.ResponseWriter {
+	val := ctx.Value(respKey{})
+	if val == nil {
+		return nil
+	}
+	return val.(http.ResponseWriter)
 }

@@ -26,10 +26,13 @@ func (e ErrNotPost) As(target interface{}) bool {
 
 // ErrNotJSON is the type of error produced when a handler created by Handler
 // is invoked with a request body not properly labeled as JSON.
-type ErrNotJSON struct{}
+type ErrNotJSON struct{
+	// ContentType is the content type of the request body.
+	ContentType string
+}
 
 func (e ErrNotJSON) Error() string {
-	return "request Content-Type is not application/json"
+	return fmt.Sprintf("request Content-Type is %s, want application/json", e.ContentType)
 }
 
 func (e ErrNotJSON) As(target interface{}) bool {
@@ -113,4 +116,8 @@ func (c CodeErr) Unwrap() error {
 
 func (c CodeErr) Respond(w http.ResponseWriter) {
 	http.Error(w, c.Error(), c.C)
+}
+
+type Responder interface {
+	Respond(http.ResponseWriter)
 }
