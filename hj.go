@@ -8,7 +8,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"mime"
 	"net/http"
 	"reflect"
