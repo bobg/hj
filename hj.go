@@ -31,6 +31,9 @@ var (
 // That argument can optionally be preceded by a context.Context.
 // It may return one "response" value of any type that can be JSON-marshaled.
 // That return value can optionally be followed by an error.
+// If the error implements Responder,
+// its Respond method is used to set the status code for the HTTP response;
+// otherwise the status code on error is 500 (internal server error).
 //
 // When the handler is invoked,
 // the request is checked to ensure that the method is POST
@@ -43,11 +46,14 @@ var (
 // If f takes a context.Context, it receives the context object from the http.Request.
 // If f returns an error, it is passed to the optional onError callback, along with the context.
 // The context object in both cases is adorned with the pending *http.Request,
-// which can be retrieved with the Request function.
+// which can be retrieved with the Request function,
+// and the pending http.ResponseWriter,
+// which can be retrieved with Response.
 func Handler(f interface{}, onError func(context.Context, error)) http.Handler {
-	fval := reflect.ValueOf(f)
-
-	ftype := fval.Type()
+	var (
+		fval  = reflect.ValueOf(f)
+		ftype = fval.Type()
+	)
 	if ftype.Kind() != reflect.Func {
 		panic("non-function passed to hj.Handler")
 	}
